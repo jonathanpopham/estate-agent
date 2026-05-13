@@ -3,6 +3,5 @@
   "environment": "prod",
   "severity": "high",
   "error": "TypeError: Cannot read properties of undefined",
-  "stack": "at calculateTax (src/tax.ts:42:11)\nat checkout (src/checkout.ts:88:5)"
+  "stack": "at calculateTax (src/tax.ts:42:11)"
 }
-

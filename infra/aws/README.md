@@ -1,21 +1,10 @@
-# AWS Deployment Target
+# AWS
 
-The first AWS deployment should be intentionally boring:
+Target shape:
 
-- API Gateway or ALB for HTTPS webhook intake
-- ECS Fargate service running `estate-agent serve`
-- SQS queue between intake and worker once builder mode exists
-- Secrets Manager for GitHub credentials and webhook secret
+- ECS Fargate or Lambda Web Adapter for the HTTP service
+- SQS for queued agent work
+- Secrets Manager for OpenRouter and GitHub credentials
 - CloudWatch logs and alarms
-- ECR for container image storage
-
-Terraform will live here once the local MVP is stable.
-
-Initial variables:
-
-- `github_webhook_secret`
-- `github_token_secret_arn`
-- `default_repo_owner`
-- `default_repo_name`
-- `dry_run`
+- ECR for container images
 

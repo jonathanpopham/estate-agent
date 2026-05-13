@@ -1,54 +1,40 @@
 # Estate Agent
 
-An autonomous steward for software estates.
+Estate Agent is an open source service for autonomous software-estate management.
 
-Estate Agent is a server-side agent that listens for operational signals and GitHub issues, turns them into scoped work items, and drives them through a software delivery loop. The first MVP is intentionally conservative: it classifies incoming work, stores state, and writes an implementation plan in dry-run mode.
+The intended shape is a long-running service that owns a website or application estate. It listens to operational signals and GitHub issues, uses a BYO-key LLM provider such as OpenRouter, evaluates whether work should proceed, and then drives accepted work through an auditable software delivery loop.
 
-The long-term goal is a resident agent that can own an app or website end to end:
+This repo is starting fresh in Go.
 
-- production errors become bug issues
-- feature requests are filed as GitHub issues
-- the agent decides whether work should proceed
-- accepted work gets planned, implemented, tested, reviewed, and opened as a PR
-- risky work escalates to a human instead of mutating production blindly
+## Product Direction
 
-## MVP Shape
+Estate Agent should support:
 
-```text
-GitHub issue webhook ─┐
-                      ├─> Estate Agent server ─> work item ─> SDLC plan
-Error/log webhook ────┘                         └─> SQLite state
-```
+- GitHub issues as the control surface for bugs, feature requests, and maintenance work
+- production error ingestion from cloud logs and alerting systems
+- OpenRouter-compatible model execution with bring-your-own API keys
+- cloud-neutral deployment across AWS, Azure, and GCP
+- test-driven development for core routing, safety, and model-request behavior
+- deterministic eval fixtures before the agent can mutate code
+- GitHub issues as the project ledger while the system is built
 
-Current capabilities:
+## Current Status
 
-- Receives GitHub issue webhooks for `bug`, `estate:bug`, `feature`, and `estate:feature` labels.
-- Receives generic error payloads from log pipelines.
-- Normalizes both into a `WorkItem`.
-- Stores work state in SQLite.
-- Generates a structured implementation plan.
-- Runs in dry-run mode by default.
+The Go foundation includes:
 
-Planned next capabilities:
+- typed runtime config
+- HTTP health endpoint
+- GitHub webhook signature verification
+- issue-event routing into normalized work items
+- error-payload routing into normalized work items
+- OpenRouter chat-completion request shaping
+- deterministic eval fixture runner
 
-- Post plans back to GitHub issues.
-- Create bug issues from production errors.
-- Run a coding agent in an isolated checkout.
-- Push branches and open draft PRs.
-- Require CI, review, diff-size, and path-safety gates before readiness.
-- Deploy on AWS or Azure with Terraform.
-
-## Quickstart
+## Local Development
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[server]"
-
-export ESTATE_AGENT_DRY_RUN=true
-export ESTATE_AGENT_GITHUB_WEBHOOK_SECRET=local-dev-secret
-
-estate-agent serve --reload
+go test ./...
+go run ./cmd/estate-agent serve
 ```
 
 Health check:
@@ -57,53 +43,25 @@ Health check:
 curl http://127.0.0.1:8080/health
 ```
 
-Send a local error payload:
-
-```bash
-curl -X POST http://127.0.0.1:8080/ingest/error \
-  -H 'content-type: application/json' \
-  -d '{
-    "service": "checkout-web",
-    "environment": "prod",
-    "error": "TypeError: Cannot read properties of undefined",
-    "stack": "at calculateTax (src/tax.ts:42:11)",
-    "severity": "high"
-  }'
-```
-
 ## Configuration
-
-Environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ESTATE_AGENT_DRY_RUN` | `true` | Prevents writes to GitHub when true. |
-| `ESTATE_AGENT_DB_PATH` | `.estate-agent/state.db` | SQLite state path. |
-| `ESTATE_AGENT_GITHUB_TOKEN` | unset | GitHub API token for comments/issues. |
-| `ESTATE_AGENT_GITHUB_WEBHOOK_SECRET` | unset | Secret used to verify GitHub webhook signatures. |
-| `ESTATE_AGENT_DEFAULT_OWNER` | unset | Owner for issues created from log/error intake. |
-| `ESTATE_AGENT_DEFAULT_REPO` | unset | Repo for issues created from log/error intake. |
-| `ESTATE_AGENT_BUG_LABELS` | `bug,estate:bug,bug:autofix` | Labels treated as bug work. |
-| `ESTATE_AGENT_FEATURE_LABELS` | `feature,feature request,estate:feature` | Labels treated as feature work. |
+| `ESTATE_AGENT_ADDR` | `127.0.0.1:8080` | HTTP listen address. |
+| `ESTATE_AGENT_CLOUD` | `local` | Runtime profile: `local`, `aws`, `azure`, or `gcp`. |
+| `ESTATE_AGENT_DRY_RUN` | `true` | Keeps the agent from mutating GitHub or repos. |
+| `ESTATE_AGENT_GITHUB_WEBHOOK_SECRET` | unset | Secret for GitHub webhook signature checks. |
+| `ESTATE_AGENT_OPENROUTER_API_KEY` | unset | OpenRouter API key supplied by the operator. |
+| `ESTATE_AGENT_OPENROUTER_MODEL` | `openai/gpt-4.1-mini` | Default model for planning/eval calls. |
+| `ESTATE_AGENT_OPENROUTER_REFERER` | unset | Optional OpenRouter app attribution URL. |
+| `ESTATE_AGENT_OPENROUTER_TITLE` | `Estate Agent` | Optional OpenRouter app title. |
 
-## Why This Exists
+## Active Work
 
-Bugloop was focused on autonomous bug fixing. Estate Agent is the broader version: an agent that owns a software estate, accepts requests through GitHub issues, listens to production signals, and runs a guarded SDLC loop.
+The project is tracked in GitHub issues:
 
-Supermodel-style code graph context can become one tool in the loop, but the core project does not depend on any private repository or proprietary code.
-
-## Guardrails
-
-Estate Agent should never be trusted to mutate production by default.
-
-The default operating posture is:
-
-- dry-run first
-- least-privilege GitHub token
-- no auto-merge
-- no secret exfiltration
-- no CI/config/security-path edits without explicit approval
-- human escalation on ambiguous, large, or risky changes
-
-See [docs/architecture.md](docs/architecture.md) and [docs/mvp-plan.md](docs/mvp-plan.md).
+- #2 evaluation harness
+- #3 OpenRouter BYO-key model execution
+- #4 cloud-neutral AWS/Azure/GCP deployment
+- #5 Go service foundation
 

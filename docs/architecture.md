@@ -1,108 +1,44 @@
 # Architecture
 
-Estate Agent is a resident software-maintenance agent. It should eventually be deployable as a small service on AWS or Azure, with narrow credentials to one or more repositories and observability sources.
+Estate Agent is a cloud-neutral Go service for autonomous software estate management.
 
-## Core Loop
+## Control Plane
 
-```text
-signals -> work item -> triage -> plan -> implement -> verify -> review -> PR -> deploy gate
-```
+The control plane accepts:
 
-Signals can come from:
+- GitHub issues and webhooks
+- production error payloads
+- scheduled maintenance triggers
+- future cloud log events from AWS, Azure, and GCP
 
-- GitHub issues labeled `estate:bug` or `estate:feature`
-- production error logs
-- Azure Application Insights alerts
-- AWS CloudWatch alarms
-- Sentry-style webhook payloads
-- scheduled health checks
+It normalizes each signal into a work item, evaluates whether the request should proceed, and records decisions before any mutation.
 
-## Work Item Types
+## Model Provider
 
-### Bug
+OpenRouter is the first model-provider target. Operators bring their own OpenRouter API key. Provider-specific keys can be managed inside OpenRouter BYOK settings.
 
-A bug usually begins as either a production error or a GitHub issue. The agent should require a reproduction path or a failing test before implementation.
+The core service should keep model execution behind an interface so future providers can be added without changing issue intake, evals, or cloud deployment code.
 
-### Feature
+## Runtime Profiles
 
-A feature begins as a GitHub issue. The agent should decide whether the issue is actionable, comment with clarifying questions when needed, then propose acceptance criteria before implementation.
+`ESTATE_AGENT_CLOUD` selects a deployment profile:
 
-## Agent Modes
+- `local`
+- `aws`
+- `azure`
+- `gcp`
 
-### Dry Run
+The application code should stay cloud-neutral. Terraform and runtime environment should handle cloud-specific concerns such as networking, secrets, queues, and logs.
 
-Default. The agent writes a plan only. No comments, branches, issues, or PRs are created.
+## Safety Model
 
-### Commenter
+The service starts in dry-run mode. Mutating actions should be introduced in layers:
 
-The agent can comment on issues with plans and clarification questions.
+1. comment on issues
+2. create issues from production errors
+3. create branches
+4. open draft PRs
+5. update PRs after review feedback
 
-### Builder
-
-The agent can create branches, commit changes, run tests, and open draft PRs.
-
-### Maintainer
-
-The agent can manage recurring upkeep tasks such as dependency updates, dead-code cleanup, docs refreshes, and low-risk refactors.
-
-Auto-merge is intentionally outside the MVP.
-
-## State
-
-The MVP uses SQLite for local state:
-
-- work item id
-- source
-- kind
-- repository
-- issue number
-- latest payload
-- timestamps
-
-Later deployments can swap this for Postgres, DynamoDB, Azure Table Storage, or Durable Functions state.
-
-## Safety Gates
-
-Before opening or marking a PR ready, the agent should check:
-
-- diff size
-- changed path allowlist/denylist
-- CI status
-- test output
-- dependency/security impact
-- whether secrets or credentials were touched
-- whether the issue has enough acceptance criteria
-
-Default high-risk paths:
-
-- `.github/`
-- infrastructure directories
-- auth and billing modules
-- migrations
-- deployment manifests
-- secret/config files
-
-## Optional Code Intelligence
-
-Supermodel-style graph context can be one tool in the context layer:
-
-- blast radius for changed symbols
-- callers/callees
-- dependency edges
-- dead-code candidates
-- architecture/domain ownership
-
-Estate Agent should keep that as an adapter, not a hard dependency.
-
-## Deployment Model
-
-The expected production shape is:
-
-```text
-GitHub Webhooks ─┐
-Cloud Logs ──────┼─> HTTPS endpoint -> queue -> worker -> isolated checkout -> PR
-Scheduler ───────┘
-```
-
-Use a queue between intake and execution so webhook handling stays fast and agent work can be retried, rate-limited, or cancelled.
+Auto-merge is intentionally out of scope until evals and safety gates are strong.
 
