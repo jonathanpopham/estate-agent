@@ -6,12 +6,12 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.x"
-      - run: go test ./...
-
+      - name: verify (gofmt, vet, build, test -race)
+        run: bash scripts/verify.sh
